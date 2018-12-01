@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Numerics;
+using Deveel.Math;
 using System.Diagnostics;
 using System.IO;
 using System.ComponentModel;
@@ -28,22 +28,22 @@ namespace Taylor
             var steps = GetSteps(stepsString);
             var rads = GetRads(radToCalculate);
 
-            var factorialResult = GetFactorial(steps).ToString();
-
-            LogToFile(factorialResult, stepsString, radToCalculate);
-
-            var message = "Resultado: ";
-            var caption = "Resultado";
-            MessageBoxButtons buttons = MessageBoxButtons.OK;
-
-            message += "Esta no arquivo Taylor.txt, no desktop";
-            message += "\nResultado do fatorial lento: " + factorial((uint)steps).ToString();
-            MessageBox.Show(message, caption, buttons);
             if (steps > 0)
             {
+                var taylorResult = CalculateCosenoTaylor(steps, rads);
 
+                LogToFile(taylorResult.ToString(), stepsString, radToCalculate);
+
+                tbResult.Text = taylorResult.ToString();
+                tbExpectedResult.Text = Math.Cos(rads).ToString();
+
+                //var message = "Resultado: ";
+                //var caption = "Resultado";
+                //MessageBoxButtons buttons = MessageBoxButtons.OK;
+
+                //message += "Esta no arquivo Taylor.txt, no desktop";
+                //MessageBox.Show(message, caption, buttons);
             }
-
         }
 
         private void LogToFile(string result, string stepsString, string radToCalculate)
@@ -55,7 +55,7 @@ namespace Taylor
                 file.Close();
             }
 
-            File.WriteAllText(textPath, "Resultado fatorial de " + radToCalculate + " com " + stepsString + " passos: " + result.ToString());
+            File.WriteAllText(textPath, "Resultado da série de Taylor de " + radToCalculate + " com " + stepsString + " passos: " + result.ToString());
         }
 
         private int GetSteps(string stepsInput)
@@ -76,9 +76,9 @@ namespace Taylor
                 return 0;
             }
         }
-        private decimal GetRads(string radsInput)
+        private double GetRads(string radsInput)
         {
-            var success = decimal.TryParse(radsInput, out var steps);
+            var success = double.TryParse(radsInput, out var steps);
             if (success)
             {
                 return steps;
@@ -95,26 +95,47 @@ namespace Taylor
             }
         }
 
-        private decimal CalculateCosenoTaylor(int steps, decimal rad)
+        private BigDecimal CalculateCosenoTaylor(int steps, double rad)
         {
-            decimal currentValue;
-            for (int i = 0; i <= steps; i++)
+
+            var mathContext = new MathContext(1024, RoundingMode.HalfEven);
+            var currentValue = new BigDecimal(0, mathContext);
+            var expoResult = new BigDecimal(0, mathContext);
+            var radAsBigInt = new BigDecimal(rad, mathContext);
+
+            var stopWatch = Stopwatch.StartNew();
+
+            for (var i = 0; i <= steps; i++)
             {
-                //currentValue += ((-1) ^ i) * ((rad ^ (2 * i)) / ( ;
+                if (stopWatch.ElapsedMilliseconds < 10000)
+                {
+                    expoResult = radAsBigInt.Pow(2 * i);
+                    currentValue = currentValue.Add((expoResult.Divide(GetFactorial(2 * i), mathContext).Multiply(Math.Pow(-1, i), mathContext)), mathContext);
+
+                }
+                else
+                {
+                    var message = "Não foi calculado o Coseno até o final, pois estourou o tempo, calculou até o passo: "
+                        + i.ToString();
+                    var caption = "Stopwatch pop";
+                    MessageBoxButtons buttons = MessageBoxButtons.OK;
+
+                    MessageBox.Show(message, caption, buttons);
+                    break;
+                }
             }
-            return 0;
+            return currentValue;
         }
 
         private BigInteger GetFactorial(BigInteger value)
         {
-            BigInteger result = new BigInteger();
-            Console.WriteLine("Tamanho: " + Marshal.SizeOf(result).ToString());
+            BigInteger result = 0;
             return Recfact(1, value, Stopwatch.StartNew());
         }
 
         private BigInteger Recfact(BigInteger start, BigInteger n, Stopwatch stopwatch)
         {
-            if (stopwatch.ElapsedMilliseconds > 10000)
+            if (stopwatch.ElapsedMilliseconds > 1000)
             {
                 var message = "Não foi calculado o fatorial pois estourou o tempo";
                 var caption = "Stopwatch pop";
